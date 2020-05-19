@@ -1,0 +1,51 @@
+globals:
+  project_home: $CAPDEMO_HOME
+  datasource_module: test_datasources
+  service_module: test_services
+
+
+service_objects:
+
+
+sources:
+  testsrc:
+    class: TestDatasource
+
+maps:   
+  orders:
+    settings:
+
+    lookup_source:
+      testsrc
+
+    fields:
+      - orderid:
+          source: record
+          key: order_id
+
+      - customerid:
+          source: record
+          key: customer_id
+
+      - order_amount:
+          source: record
+          key: amount
+
+      - created_ts:
+          source: record
+          key: created_at
+  
+      - year:
+          source: lambda
+          key: created_at
+          expression: "int(~x.split(' ')[0].split('-')[0])"
+
+      - month:
+          source: lambda
+          key: created_at
+          expression: "int(~x.split(' ')[0].split('-')[1])"
+
+      - day:
+          source: lambda
+          key: created_at
+          expression: "int(~x.split(' ')[0].split('-')[2])"
