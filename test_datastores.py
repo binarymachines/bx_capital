@@ -16,6 +16,95 @@ class ObjectFactory(object):
         return SubscriptionFact(**kwargs)
 
 
+#
+# This is a new datastore, for the Capital take-home.
+# The dataset is small, so I just keep a running tally in menory.
+# That is not the best way to do this; we should of course just read the records into a DataFrame
+# --which we could easily do. I'm forgoing the use of DataFrames because I want to see 
+# how far I can push this design using just the Mercury tooling.
+#
+
+EPOCH = 2018
+
+class RevenueCalculator(DataStore):
+    def __init__(self, service_object_registry, *channels, **kwargs):
+        DataStore.__init__(self, service_object_registry, *channels, **kwargs)
+        self.total_monthly_revenue_table = {}  # {<month1>: <total1>, <month2>: <total2>, ...}
+        self.new_monthly_revenue_table = {}
+        self.customer_orders = {} # {<customerid_month_year_tuple>: [amt1, amt2, ...]}
+        self.active_customers = set()
+
+
+    def months_prior_to(self, month):
+        for i in range(month-1, 0, -1):
+            yield i
+
+    def years_prior_to(self, year):
+        for i in range(year-1, EPOCH, -1):
+            yield i
+
+
+    def customer_orders_in_month(self, customer_id, order_month, order_year, customer_orders):
+        return customer_orders.get((customer_id, order_month, order_year), [])
+
+
+    def customer_totals_in_month(self, customer_id, order_month, order_year, customer_orders):
+        return sum(self.customer_orders_in_month(customer_id, order_month, order_year, customer_orders))
+        
+
+    def customer_orders_before_month(self, customer_id, order_month, order_year, customer_orders):
+        orders = []
+        for month in self.months_prior_to(order_month):
+            orders.extend(self.customer_orders_in_month(customer_id, month, order_year, customer_orders))
+
+        for year in self.years_prior_to(order_year):
+            for i in range(12):
+                month = i+1
+                orders.extend(self.customer_orders_in_month(customer_id, month, year, customer_orders))
+
+        return orders
+
+
+    def customer_totals_before_month(self, customer_id, order_month, order_year, customer_orders):
+        return sum(self.customer_orders_before_month(customer_id, order_month, order_year, self.customer_orders))
+
+
+    def is_new_customer(self, customer_id, order_month, order_year, customer_orders):
+        pass
+
+
+    def write(self, records, **kwargs):
+        for raw_record in records:
+            record = json.loads(raw_record)
+            customer_id = record['customerid']
+            order_month = record['month']
+            order_year = record['year']
+            order_amount = record['order_amount']
+
+            self.active_customers.add(customer_id)
+
+            # update monthly customer orders
+            key = (customer_id, order_month, order_year)
+
+            if customer_id == 'cus_1683':
+                print('recording order for %s in month %s and year %s. Amount: %s' % (customer_id, order_month, order_year, order_amount))
+
+            if not self.customer_orders.get(key):
+                self.customer_orders[key] = [order_amount]
+            else:
+                self.customer_orders[key].append(order_amount)
+
+            # calculate total revenue
+            if not self.total_monthly_revenue_table.get(order_month):
+                self.total_monthly_revenue_table[order_month] = order_amount
+            else:
+                self.total_monthly_revenue_table[order_month] += order_amount
+
+        print(common.jsonpretty(self.total_monthly_revenue_table))
+
+        print(self.customer_orders_before_month('cus_1683', 4, 2020, self.customer_orders))
+       
+
 class FileStore(DataStore):
     def __init__(self, service_object_registry, *channels, **kwargs):
         DataStore.__init__(self, service_object_registry, *channels, **kwargs)
@@ -324,10 +413,10 @@ class PostgresOLAPDatastore(DataStore):
 
         with postgres_svc.txn_scope() as session:
             for raw_record in records:
-                #print('### datastore reading input record: %s' % raw_record, file=sys.stderr)
+                
                 record = json.loads(raw_record)
                 db_record = self.prepare_fact_record(record)
-                fact = ObjectFactory.create_subscription_fact(postgres_svc, **db_record)
+                #fact = ObjectFactory.create_subscription_fact(postgres_svc, **db_record)
                 #session.add(fact)
 
                 print('>>> wrote record to database: %s' % db_record, file=sys.stderr)

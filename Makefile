@@ -20,6 +20,18 @@ generate_dim_day:
 	./dgenr8.py --plugin-module day_generator --sql --schema capdb --dim-table dim_date_day --columns id value
 
 
+etl_file:
+	CAPDEMO_HOME=`pwd` PYTHONPATH=`pwd` xfile --config config/extract_orders.yaml --delimiter ',' --map orders order_log.csv --limit 5 | ngst --config config/ingest_orders.yaml --target file
+
+
+etl_calc:
+	CAPDEMO_HOME=`pwd` PYTHONPATH=`pwd` xfile --config config/extract_orders.yaml --delimiter ',' --map orders order_log.csv | ngst --config config/ingest_orders.yaml --target calc
+
+
+etl_db:
+	CAPDEMO_HOME=`pwd` PYTHONPATH=`pwd` xfile --config config/extract_orders.yaml --delimiter ',' --map orders order_log.csv | ngst --config config/ingest_orders.yaml --target db
+
+
 init_db:
 	cat sql/capital_ddl.sql | pgexec --target bxlogic_db --db binary_test -s
 	cat sql/capital_initial_data.sql | pgexec --target bxlogic_db --db binary_test -s

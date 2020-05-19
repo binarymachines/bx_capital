@@ -28,8 +28,9 @@ maps:
           key: customer_id
 
       - order_amount:
-          source: record
+          source: lambda
           key: amount
+          expression: "float(~x)"
 
       - created_ts:
           source: record

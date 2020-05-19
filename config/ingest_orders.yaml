@@ -1,0 +1,36 @@
+# 
+# YAML init file for Mercury tool (ngst)
+#
+#
+
+globals:
+        project_home:                $CAPDEMO_HOME
+        service_module:              test_services 
+        datastore_module:            test_datastores
+
+service_objects:
+
+
+   
+datastores:
+    calculator:
+      class: RevenueCalculator
+      init_params:
+
+    jsonfile:
+        class: FileStore
+        init_params:
+          - name: filename
+            value: output.json
+
+   
+
+ingest_targets:
+    file:
+        datastore: jsonfile
+        checkpoint_interval: 10
+
+ 
+    calc:
+      datastore: calculator
+      checkpoint_interval: 100000
